@@ -2,7 +2,7 @@
 
 Backend API for an organic grocery shopping assistant.
 
-Current phase: **Phase 1 - FastAPI Project Foundation**
+Current phase: **Phase 2 - SQLAlchemy Models and Database Setup**
 
 ## Tech Stack
 
@@ -28,10 +28,20 @@ app/
 │       └── routes/
 │           ├── __init__.py
 │           └── health.py
+├── models/
+│   ├── __init__.py
+│   ├── category.py
+│   ├── order.py
+│   ├── order_item.py
+│   ├── product.py
+│   └── review.py
 └── core/
     ├── __init__.py
     ├── config.py
     └── database.py
+
+scripts/
+└── seed_db.py
 
 requirements.txt
 .env.example
@@ -68,7 +78,7 @@ pip install -r requirements.txt
 
 ### 4. Create your environment file
 
-Copy `.env.example` to `.env` and keep the default values for Phase 1.
+Copy `.env.example` to `.env` and keep the default values.
 
 Example values:
 
@@ -82,6 +92,18 @@ DATABASE_URL="sqlite:///./shopping_assistant.db"
 
 ```bash
 uvicorn app.main:app --reload
+```
+
+### 6. Seed the database
+
+```bash
+python scripts/seed_db.py
+```
+
+If your machine uses `python3`, run:
+
+```bash
+python3 scripts/seed_db.py
 ```
 
 ## How to Test the API
@@ -99,20 +121,114 @@ curl http://127.0.0.1:8000/
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
+## Phase 2: Models Added
+
+This phase adds these SQLAlchemy models:
+
+- `Category`
+- `Product`
+- `Review`
+- `Order`
+- `OrderItem`
+
+## Beginner-Friendly Relationship Overview
+
+- One category can have many products.
+- One product belongs to one category.
+- One product can have many reviews.
+- One order can have many order items.
+- One order item belongs to one order.
+- One order item belongs to one product.
+
+These relationships are defined with SQLAlchemy `relationship()` and `back_populates` so both sides stay connected in Python code.
+
+## How Tables Are Created Automatically
+
+When you start the FastAPI app with:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+the app imports the models and runs:
+
+```python
+Base.metadata.create_all(bind=engine)
+```
+
+This creates the SQLite tables if they do not already exist.
+
+This is helpful for beginner learning. In real projects, database changes should usually be handled with Alembic migrations instead.
+
+## Seeding Sample Data
+
+After the tables are created, run:
+
+```bash
+python scripts/seed_db.py
+```
+
+This script:
+
+- checks whether categories already exist
+- avoids inserting duplicate starter data
+- adds sample categories
+- adds sample products
+- adds a few sample reviews
+
+## Where the SQLite Database File Appears
+
+With the current `DATABASE_URL`, the SQLite file will appear in the project root as:
+
+```text
+shopping_assistant.db
+```
+
+## How to Reset the Local Database
+
+If you want a fresh database for learning:
+
+1. Stop the FastAPI server.
+2. Delete the `shopping_assistant.db` file from the project root.
+3. Start the server again:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+4. Seed the database again if needed:
+
+```bash
+python scripts/seed_db.py
+```
+
 ## What This Phase Sets Up
 
-- A working FastAPI application
-- Centralized project settings using `.env`
-- SQLAlchemy database connection setup
-- API versioning with `/api/v1`
-- A simple health check endpoint
+- SQLAlchemy models for categories, products, reviews, orders, and order items
+- Automatic table creation for beginner learning
+- A simple seed script for local development data
+- The same working FastAPI routes from Phase 1
 
-## Notes for the Next Phase
+## What Still Does Not Exist Yet
 
-Before moving to Phase 2, make sure you understand:
+- No CRUD endpoints yet
+- No Pydantic schemas yet
+- No repositories or services yet
+- No AI shopping assistant logic yet
+
+The database exists now, but you still cannot create or list products through the API until later phases.
+
+`/docs` and `/api/v1/health` should still work exactly as before.
+
+## Notes Before Phase 3
+
+Before moving to Phase 3, make sure you understand:
 
 - How FastAPI creates and runs an application from `app/main.py`
 - How routers help organize endpoints
 - How settings are loaded from `app/core/config.py`
-- Why `get_db` exists even though we are not using models yet
-- The difference between `engine`, `SessionLocal`, and `Base` in SQLAlchemy
+- How SQLAlchemy models map Python classes to database tables
+- The difference between `engine`, `SessionLocal`, and `Base`
+- How foreign keys connect tables together
+- How `relationship()` and `back_populates` help navigate related data
+- Why `create_all()` is acceptable for learning but not the long-term production approach
