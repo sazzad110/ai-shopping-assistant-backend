@@ -2,7 +2,7 @@
 
 Backend API for an organic grocery shopping assistant.
 
-Current phase: **Phase 2 - SQLAlchemy Models and Database Setup**
+Current phase: **Phase 3 - Category CRUD with Route, Service, and Repository Layers**
 
 ## Tech Stack
 
@@ -27,6 +27,7 @@ app/
 │       ├── router.py
 │       └── routes/
 │           ├── __init__.py
+│           ├── categories.py
 │           └── health.py
 ├── models/
 │   ├── __init__.py
@@ -35,6 +36,15 @@ app/
 │   ├── order_item.py
 │   ├── product.py
 │   └── review.py
+├── repositories/
+│   ├── __init__.py
+│   └── category_repository.py
+├── schemas/
+│   ├── __init__.py
+│   └── category.py
+├── services/
+│   ├── __init__.py
+│   └── category_service.py
 └── core/
     ├── __init__.py
     ├── config.py
@@ -121,64 +131,124 @@ curl http://127.0.0.1:8000/
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
-## Phase 2: Models Added
+## Phase 3: Category CRUD Added
 
-This phase adds these SQLAlchemy models:
+This phase adds full Category CRUD with these layers:
 
-- `Category`
-- `Product`
-- `Review`
-- `Order`
-- `OrderItem`
+- schema layer
+- repository layer
+- service layer
+- route layer
 
-## Beginner-Friendly Relationship Overview
+## What Each Layer Means
 
-- One category can have many products.
-- One product belongs to one category.
-- One product can have many reviews.
-- One order can have many order items.
-- One order item belongs to one order.
-- One order item belongs to one product.
+- Schemas define request and response shapes.
+- Routes receive HTTP requests and return HTTP responses.
+- Services contain business rules such as duplicate checks and not-found handling.
+- Repositories talk directly to the database using SQLAlchemy.
 
-These relationships are defined with SQLAlchemy `relationship()` and `back_populates` so both sides stay connected in Python code.
+## How Request Data Flows Through the App
 
-## How Tables Are Created Automatically
+For a category request, the flow is:
 
-When you start the FastAPI app with:
+1. The route receives the HTTP request.
+2. The route sends the validated data to the service layer.
+3. The service layer applies business rules.
+4. The service layer calls the repository layer.
+5. The repository layer runs SQLAlchemy queries.
+6. The database returns the result back through the same path.
+
+This gives you a clean separation between API logic and database logic.
+
+## Category Endpoints
+
+- `POST /api/v1/categories`
+- `GET /api/v1/categories`
+- `GET /api/v1/categories/{category_id}`
+- `PATCH /api/v1/categories/{category_id}`
+- `DELETE /api/v1/categories/{category_id}`
+
+## How Duplicate Category Handling Works
+
+Before creating a category, the service checks whether the same category name already exists.
+
+Before renaming a category, the service checks whether the new name already belongs to another category.
+
+If a duplicate is found, the API returns:
+
+```text
+400 Bad Request
+Category with this name already exists
+```
+
+## Run the Server
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-the app imports the models and runs:
-
-```python
-Base.metadata.create_all(bind=engine)
-```
-
-This creates the SQLite tables if they do not already exist.
-
-This is helpful for beginner learning. In real projects, database changes should usually be handled with Alembic migrations instead.
-
-## Seeding Sample Data
-
-After the tables are created, run:
+## Seed the Database
 
 ```bash
 python scripts/seed_db.py
 ```
 
-This script:
+## Test Category CRUD
 
-- checks whether categories already exist
-- avoids inserting duplicate starter data
-- adds sample categories
-- adds sample products
-- adds a few sample reviews
+Create category:
 
-## Where the SQLite Database File Appears
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/categories" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "Dairy",
+  "description": "Organic milk, cheese, yogurt, and dairy products"
+}'
+```
 
-With the current `DATABASE_URL`, the SQLite file will appear in the project root as:
+List categories:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/categories"
+```
+
+List categories with pagination:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/categories?limit=10&offset=0"
+```
+
+Get category by ID:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/categories/1"
+```
+
+Update category:
+
+```bash
+curl -X PATCH "http://127.0.0.1:8000/api/v1/categories/1" \
+-H "Content-Type: application/json" \
+-d '{
+  "description": "Updated organic dairy products"
+}'
+```
+
+Delete category:
+
+```bash
+curl -X DELETE "http://127.0.0.1:8000/api/v1/categories/1"
+```
+
+## Existing Endpoints Still Work
+
+- `GET /`
+- `GET /api/v1/health`
+- Swagger docs: `http://127.0.0.1:8000/docs`
+
+## SQLite Database File
+
+With the current `DATABASE_URL`, the SQLite database file appears in the project root as:
 
 ```text
 shopping_assistant.db
@@ -204,31 +274,31 @@ python scripts/seed_db.py
 
 ## What This Phase Sets Up
 
-- SQLAlchemy models for categories, products, reviews, orders, and order items
-- Automatic table creation for beginner learning
-- A simple seed script for local development data
-- The same working FastAPI routes from Phase 1
+- Category CRUD endpoints
+- Pydantic request and response schemas for categories
+- A simple repository layer for database access
+- A simple service layer for business rules
+- The existing database models and seed script from earlier phases
 
 ## What Still Does Not Exist Yet
 
-- No CRUD endpoints yet
-- No Pydantic schemas yet
-- No repositories or services yet
+- No Product CRUD yet
+- No Review CRUD yet
+- No Order APIs yet
 - No AI shopping assistant logic yet
 
-The database exists now, but you still cannot create or list products through the API until later phases.
+Product CRUD starts in Phase 4.
 
 `/docs` and `/api/v1/health` should still work exactly as before.
 
-## Notes Before Phase 3
+## Notes Before Phase 4
 
-Before moving to Phase 3, make sure you understand:
+Before moving to Phase 4, make sure you understand:
 
 - How FastAPI creates and runs an application from `app/main.py`
 - How routers help organize endpoints
-- How settings are loaded from `app/core/config.py`
-- How SQLAlchemy models map Python classes to database tables
-- The difference between `engine`, `SessionLocal`, and `Base`
-- How foreign keys connect tables together
-- How `relationship()` and `back_populates` help navigate related data
-- Why `create_all()` is acceptable for learning but not the long-term production approach
+- How request validation works with Pydantic schemas
+- Why the route layer should not query the database directly
+- Why the service layer handles business rules like duplicate checks
+- Why the repository layer is responsible for SQLAlchemy queries
+- How `Depends(get_db)` provides a database session to routes
