@@ -2,7 +2,7 @@
 
 Backend API for an organic grocery shopping assistant.
 
-Current phase: **Phase 5 - Review CRUD and Product Rating Aggregation**
+Current phase: **Phase 6 - Order APIs and Backend Business Logic**
 
 ## Tech Stack
 
@@ -29,6 +29,7 @@ app/
 │           ├── __init__.py
 │           ├── categories.py
 │           ├── health.py
+│           ├── orders.py
 │           ├── products.py
 │           └── reviews.py
 ├── models/
@@ -41,16 +42,19 @@ app/
 ├── repositories/
 │   ├── __init__.py
 │   ├── category_repository.py
+│   ├── order_repository.py
 │   ├── product_repository.py
 │   └── review_repository.py
 ├── schemas/
 │   ├── __init__.py
 │   ├── category.py
+│   ├── order.py
 │   ├── product.py
 │   └── review.py
 ├── services/
 │   ├── __init__.py
 │   ├── category_service.py
+│   ├── order_service.py
 │   ├── product_service.py
 │   └── review_service.py
 └── core/
@@ -139,9 +143,9 @@ curl http://127.0.0.1:8000/
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
-## Phase 5: Review CRUD and Ratings Added
+## Phase 6: Order APIs Added
 
-This phase adds review management and product rating aggregation with the same clean layers:
+This phase adds order creation and order management with the same clean layers:
 
 - schema layer
 - repository layer
@@ -157,7 +161,7 @@ This phase adds review management and product rating aggregation with the same c
 
 ## How Request Data Flows Through the App
 
-For a review request, the flow is:
+For an order request, the flow is:
 
 1. The route receives the HTTP request.
 2. The route sends the validated data to the service layer.
@@ -168,42 +172,47 @@ For a review request, the flow is:
 
 This gives you a clean separation between API logic and database logic.
 
-## Review Endpoints
+## Order Endpoints
 
-- `POST /api/v1/products/{product_id}/reviews`
-- `GET /api/v1/products/{product_id}/reviews`
-- `GET /api/v1/reviews/{review_id}`
-- `PATCH /api/v1/reviews/{review_id}`
-- `DELETE /api/v1/reviews/{review_id}`
+- `POST /api/v1/orders`
+- `GET /api/v1/orders`
+- `GET /api/v1/orders/{order_id}`
+- `PATCH /api/v1/orders/{order_id}/status`
 
-## Rating Endpoints
+## What This Phase Teaches
 
-- `GET /api/v1/products/{product_id}/rating`
-- `GET /api/v1/products/with-ratings`
+- An order can contain multiple items.
+- Product stock is validated before order creation.
+- Stock decreases after order creation.
+- `line_total` is calculated for each item by the backend.
+- `total_amount` is calculated by the backend and never trusted from user input.
+- `product_name_snapshot` and `unit_price` are saved at order time.
+- Order status can be updated later.
 
-## How Review and Rating Logic Works
+## Why Product Snapshots Are Stored
 
-- Reviews belong to products.
-- Rating validation is handled by Pydantic and must stay between `1` and `5`.
-- Average rating is calculated from review rows when needed.
-- Average rating is not stored directly on the product table in this phase.
+If a product name or price changes later, old orders should still show what the customer actually bought at that time.
 
-## Why Calculated Ratings Are Useful
+That is why the backend stores:
 
-For beginner learning, calculated ratings are simpler and safer than storing duplicate rating data on the `products` table.
+- `product_name_snapshot`
+- `unit_price`
 
-This avoids keeping two sources of truth in sync every time a review is created, updated, or deleted.
+## How Stock Validation Works
 
-## How Product Existence Validation Works
+Before creating an order, the service checks every requested product:
 
-Before creating a review, listing reviews, or calculating rating for a product, the service checks that the product exists.
+- the product exists
+- the product is active
+- the product has enough stock
 
-If the product does not exist, the API returns:
+If one of these checks fails, the order is rejected before anything is committed.
 
-```text
-404 Not Found
-Product not found
-```
+## Why Orders Are Not Deleted
+
+Real systems usually cancel orders or update their status instead of deleting them completely.
+
+That is why this phase adds `PATCH /orders/{order_id}/status` and intentionally does not add `DELETE /orders/{order_id}`.
 
 ## Run the Server
 
@@ -217,59 +226,55 @@ uvicorn app.main:app --reload
 python scripts/seed_db.py
 ```
 
-## Test Review CRUD and Rating Endpoints
+## Test Order APIs
 
-Create review:
+Create order:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/products/1/reviews" \
+curl -X POST "http://127.0.0.1:8000/api/v1/orders" \
 -H "Content-Type: application/json" \
 -d '{
-  "rating": 5,
-  "reviewer_name": "Sazzad",
-  "review_text": "Fresh and high quality product."
+  "customer_name": "Sazzad Hasan",
+  "customer_email": "sazzad@example.com",
+  "items": [
+    {
+      "product_id": 1,
+      "quantity": 2
+    },
+    {
+      "product_id": 2,
+      "quantity": 1
+    }
+  ]
 }'
 ```
 
-List reviews for product:
+List orders:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/products/1/reviews"
+curl "http://127.0.0.1:8000/api/v1/orders"
 ```
 
-Get one review:
+List orders with pagination:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/reviews/1"
+curl "http://127.0.0.1:8000/api/v1/orders?limit=10&offset=0"
 ```
 
-Update review:
+Get order by ID:
 
 ```bash
-curl -X PATCH "http://127.0.0.1:8000/api/v1/reviews/1" \
+curl "http://127.0.0.1:8000/api/v1/orders/1"
+```
+
+Update order status:
+
+```bash
+curl -X PATCH "http://127.0.0.1:8000/api/v1/orders/1/status" \
 -H "Content-Type: application/json" \
 -d '{
-  "rating": 4,
-  "review_text": "Still good, but delivery was a little late."
+  "status": "confirmed"
 }'
-```
-
-Delete review:
-
-```bash
-curl -X DELETE "http://127.0.0.1:8000/api/v1/reviews/1"
-```
-
-Get product rating:
-
-```bash
-curl "http://127.0.0.1:8000/api/v1/products/1/rating"
-```
-
-Get products with ratings:
-
-```bash
-curl "http://127.0.0.1:8000/api/v1/products/with-ratings"
 ```
 
 ## Existing Endpoints Still Work
@@ -278,6 +283,8 @@ curl "http://127.0.0.1:8000/api/v1/products/with-ratings"
 - `GET /api/v1/health`
 - Category CRUD endpoints
 - Product CRUD endpoints
+- Review CRUD endpoints
+- Rating endpoints
 - Swagger docs: `http://127.0.0.1:8000/docs`
 
 ## SQLite Database File
@@ -308,32 +315,32 @@ python scripts/seed_db.py
 
 ## What This Phase Sets Up
 
-- Review CRUD endpoints
-- Rating validation using Pydantic
-- Product rating summary endpoint
-- Product list endpoint with calculated ratings
-- A simple repository and service flow for review logic
+- Order creation with multiple items
+- Backend stock validation and stock reduction
+- Backend calculation of `line_total` and `total_amount`
+- Order listing and order detail endpoints
+- Order status update endpoint
+- A simple repository and service flow for order logic
 - The existing database models and seed script from earlier phases
 
 ## What Still Does Not Exist Yet
 
-- No Order APIs yet
 - No AI shopping assistant logic yet
 
-Order APIs start in Phase 6.
+AI agent integration starts in Phase 8, after backend quality improvements in Phase 7.
 
 `/docs` and `/api/v1/health` should still work exactly as before.
 
-## Notes Before Phase 6
+## Notes Before Phase 7
 
-Before moving to Phase 6, make sure you understand:
+Before moving to Phase 7, make sure you understand:
 
 - How FastAPI creates and runs an application from `app/main.py`
 - How routers help organize endpoints
 - How request validation works with Pydantic schemas
 - Why the route layer should not query the database directly
-- Why the service layer validates product existence before review operations
+- Why the service layer contains business rules such as stock validation
 - Why the repository layer is responsible for SQLAlchemy queries
 - How `Depends(get_db)` provides a database session to routes
-- How `func.avg` and `func.count` are used to calculate rating data
-- Why calculated rating values avoid storing duplicate data too early
+- How stock can be decreased on SQLAlchemy objects before a later commit
+- Why order totals should be calculated by the backend, not trusted from the client
