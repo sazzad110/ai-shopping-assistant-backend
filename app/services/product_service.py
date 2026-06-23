@@ -16,6 +16,15 @@ def create_product(db: Session, product_data: ProductCreate):
             detail="Category not found",
         )
 
+    cleaned_name = product_data.name.strip()
+    existing_product = product_repository.get_product_by_name(db, cleaned_name)
+    if existing_product:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Product already created",
+        )
+
+    product_data = product_data.model_copy(update={"name": cleaned_name})
     return product_repository.create_product(db, product_data)
 
 
@@ -81,6 +90,16 @@ def update_product(db: Session, product_id: int, product_data: ProductUpdate):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Category not found",
             )
+
+    if product_data.name is not None:
+        cleaned_name = product_data.name.strip()
+        existing_product = product_repository.get_product_by_name(db, cleaned_name)
+        if existing_product and existing_product.id != product_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product already created",
+            )
+        product_data = product_data.model_copy(update={"name": cleaned_name})
 
     return product_repository.update_product(db, product, product_data)
 

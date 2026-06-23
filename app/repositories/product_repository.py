@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.product import Product
@@ -10,6 +10,11 @@ from app.schemas.product import ProductCreate, ProductUpdate
 def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
     # This query finds one product by its primary key.
     return db.query(Product).filter(Product.id == product_id).first()
+
+
+def get_product_by_name(db: Session, name: str) -> Optional[Product]:
+    # This query checks whether a product with the same name already exists.
+    return db.query(Product).filter(func.lower(Product.name) == name.lower()).first()
 
 
 def get_products(
