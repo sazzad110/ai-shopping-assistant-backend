@@ -2,7 +2,7 @@
 
 Backend API for an organic grocery shopping assistant.
 
-Current phase: **Phase 3 - Category CRUD with Route, Service, and Repository Layers**
+Current phase: **Phase 4 - Product CRUD with Route, Service, and Repository Layers**
 
 ## Tech Stack
 
@@ -28,7 +28,8 @@ app/
 │       └── routes/
 │           ├── __init__.py
 │           ├── categories.py
-│           └── health.py
+│           ├── health.py
+│           └── products.py
 ├── models/
 │   ├── __init__.py
 │   ├── category.py
@@ -38,13 +39,16 @@ app/
 │   └── review.py
 ├── repositories/
 │   ├── __init__.py
-│   └── category_repository.py
+│   ├── category_repository.py
+│   └── product_repository.py
 ├── schemas/
 │   ├── __init__.py
-│   └── category.py
+│   ├── category.py
+│   └── product.py
 ├── services/
 │   ├── __init__.py
-│   └── category_service.py
+│   ├── category_service.py
+│   └── product_service.py
 └── core/
     ├── __init__.py
     ├── config.py
@@ -131,9 +135,9 @@ curl http://127.0.0.1:8000/
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
-## Phase 3: Category CRUD Added
+## Phase 4: Product CRUD Added
 
-This phase adds full Category CRUD with these layers:
+This phase adds full Product CRUD with the same clean layers:
 
 - schema layer
 - repository layer
@@ -149,7 +153,7 @@ This phase adds full Category CRUD with these layers:
 
 ## How Request Data Flows Through the App
 
-For a category request, the flow is:
+For a product request, the flow is:
 
 1. The route receives the HTTP request.
 2. The route sends the validated data to the service layer.
@@ -160,25 +164,34 @@ For a category request, the flow is:
 
 This gives you a clean separation between API logic and database logic.
 
-## Category Endpoints
+## Product Endpoints
 
-- `POST /api/v1/categories`
-- `GET /api/v1/categories`
-- `GET /api/v1/categories/{category_id}`
-- `PATCH /api/v1/categories/{category_id}`
-- `DELETE /api/v1/categories/{category_id}`
+- `POST /api/v1/products`
+- `GET /api/v1/products`
+- `GET /api/v1/products/search`
+- `GET /api/v1/products/{product_id}`
+- `PATCH /api/v1/products/{product_id}`
+- `DELETE /api/v1/products/{product_id}`
 
-## How Duplicate Category Handling Works
+## How Product CRUD Works
 
-Before creating a category, the service checks whether the same category name already exists.
+- Products belong to categories.
+- The service layer validates that `category_id` exists before create or category change.
+- Product delete is a soft delete, which means the row stays in the database and `is_active` becomes `false`.
+- Product list supports simple filters and pagination.
+- Product search supports searching by name and description.
 
-Before renaming a category, the service checks whether the new name already belongs to another category.
+## How Category Validation Works
 
-If a duplicate is found, the API returns:
+Before creating a product, the service checks that the category exists.
+
+Before updating `category_id`, the service checks that the new category exists.
+
+If the category does not exist, the API returns:
 
 ```text
-400 Bad Request
-Category with this name already exists
+404 Not Found
+Category not found
 ```
 
 ## Run the Server
@@ -193,57 +206,93 @@ uvicorn app.main:app --reload
 python scripts/seed_db.py
 ```
 
-## Test Category CRUD
+## Test Product CRUD
 
-Create category:
+Create product:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/categories" \
+curl -X POST "http://127.0.0.1:8000/api/v1/products" \
 -H "Content-Type: application/json" \
 -d '{
-  "name": "Dairy",
-  "description": "Organic milk, cheese, yogurt, and dairy products"
+  "name": "Organic Greek Yogurt",
+  "category_id": 1,
+  "price": 6.99,
+  "description": "Creamy organic Greek yogurt",
+  "is_organic": true,
+  "stock_quantity": 25
 }'
 ```
 
-List categories:
+List products:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/categories"
+curl "http://127.0.0.1:8000/api/v1/products"
 ```
 
-List categories with pagination:
+List active products only:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/categories?limit=10&offset=0"
+curl "http://127.0.0.1:8000/api/v1/products?is_active=true"
 ```
 
-Get category by ID:
+Filter by category:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/categories/1"
+curl "http://127.0.0.1:8000/api/v1/products?category_id=1"
 ```
 
-Update category:
+Filter organic products:
 
 ```bash
-curl -X PATCH "http://127.0.0.1:8000/api/v1/categories/1" \
+curl "http://127.0.0.1:8000/api/v1/products?is_organic=true"
+```
+
+Filter by max price:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/products?max_price=10"
+```
+
+Pagination:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/products?limit=5&offset=0"
+```
+
+Search products:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/products/search?query=honey"
+```
+
+Get product by ID:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/products/1"
+```
+
+Update product:
+
+```bash
+curl -X PATCH "http://127.0.0.1:8000/api/v1/products/1" \
 -H "Content-Type: application/json" \
 -d '{
-  "description": "Updated organic dairy products"
+  "price": 7.49,
+  "stock_quantity": 40
 }'
 ```
 
-Delete category:
+Soft delete product:
 
 ```bash
-curl -X DELETE "http://127.0.0.1:8000/api/v1/categories/1"
+curl -X DELETE "http://127.0.0.1:8000/api/v1/products/1"
 ```
 
 ## Existing Endpoints Still Work
 
 - `GET /`
 - `GET /api/v1/health`
+- Category CRUD endpoints
 - Swagger docs: `http://127.0.0.1:8000/docs`
 
 ## SQLite Database File
@@ -274,31 +323,33 @@ python scripts/seed_db.py
 
 ## What This Phase Sets Up
 
-- Category CRUD endpoints
-- Pydantic request and response schemas for categories
-- A simple repository layer for database access
-- A simple service layer for business rules
+- Product CRUD endpoints
+- Pydantic request and response schemas for products
+- A simple repository layer for product database access
+- A simple service layer for product business rules
+- Product filters and simple product search
 - The existing database models and seed script from earlier phases
 
 ## What Still Does Not Exist Yet
 
-- No Product CRUD yet
 - No Review CRUD yet
 - No Order APIs yet
 - No AI shopping assistant logic yet
 
-Product CRUD starts in Phase 4.
+Product ratings are not implemented yet. Review CRUD and ratings start in Phase 5.
 
 `/docs` and `/api/v1/health` should still work exactly as before.
 
-## Notes Before Phase 4
+## Notes Before Phase 5
 
-Before moving to Phase 4, make sure you understand:
+Before moving to Phase 5, make sure you understand:
 
 - How FastAPI creates and runs an application from `app/main.py`
 - How routers help organize endpoints
 - How request validation works with Pydantic schemas
 - Why the route layer should not query the database directly
-- Why the service layer handles business rules like duplicate checks
+- Why the service layer handles business rules like category validation
 - Why the repository layer is responsible for SQLAlchemy queries
 - How `Depends(get_db)` provides a database session to routes
+- Why soft delete keeps product rows available for later business rules
+- How filters and pagination shape list results
