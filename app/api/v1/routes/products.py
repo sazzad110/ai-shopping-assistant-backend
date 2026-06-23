@@ -4,8 +4,14 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
-from app.services import product_service
+from app.schemas.product import (
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
+    ProductWithRatingResponse,
+)
+from app.schemas.review import ProductRatingResponse
+from app.services import product_service, review_service
 
 
 router = APIRouter(prefix="/products", tags=["Products"])
@@ -47,6 +53,20 @@ def search_products(
     db: Session = Depends(get_db),
 ):
     return product_service.search_products(db, query=query, limit=limit, offset=offset)
+
+
+@router.get("/with-ratings", response_model=list[ProductWithRatingResponse])
+def list_products_with_ratings(
+    limit: int = Query(default=100, ge=0),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+):
+    return product_service.get_products_with_ratings(db, limit=limit, offset=offset)
+
+
+@router.get("/{product_id}/rating", response_model=ProductRatingResponse)
+def get_product_rating(product_id: int, db: Session = Depends(get_db)):
+    return review_service.get_product_rating(db, product_id)
 
 
 @router.get("/{product_id}", response_model=ProductResponse)

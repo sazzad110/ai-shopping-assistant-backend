@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.repositories import review_repository
 
 
 def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
@@ -97,3 +98,41 @@ def soft_delete_product(db: Session, product: Product) -> Product:
     db.commit()
     db.refresh(product)
     return product
+
+
+def get_products_with_ratings(
+    db: Session,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict]:
+    # For beginner learning, we first load active products
+    # and then calculate rating data for each product.
+    products = (
+        db.query(Product)
+        .filter(Product.is_active == True)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    results = []
+    for product in products:
+        rating_data = review_repository.get_product_rating(db, product.id)
+        results.append(
+            {
+                "id": product.id,
+                "name": product.name,
+                "category_id": product.category_id,
+                "price": product.price,
+                "description": product.description,
+                "is_organic": product.is_organic,
+                "stock_quantity": product.stock_quantity,
+                "is_active": product.is_active,
+                "created_at": product.created_at,
+                "updated_at": product.updated_at,
+                "average_rating": rating_data["average_rating"],
+                "review_count": rating_data["review_count"],
+            }
+        )
+
+    return results

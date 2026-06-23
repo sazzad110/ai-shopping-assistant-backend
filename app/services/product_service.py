@@ -113,3 +113,8 @@ def delete_product(db: Session, product_id: int):
         )
 
     product_repository.soft_delete_product(db, product)
+
+
+def get_products_with_ratings(db: Session, limit: int = 100, offset: int = 0):
+    # This helper returns product data together with calculated rating values.
+    return product_repository.get_products_with_ratings(db, limit=limit, offset=offset)

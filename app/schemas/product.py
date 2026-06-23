@@ -51,3 +51,10 @@ class ProductResponse(BaseModel):
     # from_attributes=True lets Pydantic read values
     # directly from SQLAlchemy model objects.
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProductWithRatingResponse(ProductResponse):
+    # This response is used when the API returns product data
+    # together with calculated review rating values.
+    average_rating: float
+    review_count: int

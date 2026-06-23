@@ -2,7 +2,7 @@
 
 Backend API for an organic grocery shopping assistant.
 
-Current phase: **Phase 4 - Product CRUD with Route, Service, and Repository Layers**
+Current phase: **Phase 5 - Review CRUD and Product Rating Aggregation**
 
 ## Tech Stack
 
@@ -29,7 +29,8 @@ app/
 │           ├── __init__.py
 │           ├── categories.py
 │           ├── health.py
-│           └── products.py
+│           ├── products.py
+│           └── reviews.py
 ├── models/
 │   ├── __init__.py
 │   ├── category.py
@@ -40,15 +41,18 @@ app/
 ├── repositories/
 │   ├── __init__.py
 │   ├── category_repository.py
-│   └── product_repository.py
+│   ├── product_repository.py
+│   └── review_repository.py
 ├── schemas/
 │   ├── __init__.py
 │   ├── category.py
-│   └── product.py
+│   ├── product.py
+│   └── review.py
 ├── services/
 │   ├── __init__.py
 │   ├── category_service.py
-│   └── product_service.py
+│   ├── product_service.py
+│   └── review_service.py
 └── core/
     ├── __init__.py
     ├── config.py
@@ -135,9 +139,9 @@ curl http://127.0.0.1:8000/
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
-## Phase 4: Product CRUD Added
+## Phase 5: Review CRUD and Ratings Added
 
-This phase adds full Product CRUD with the same clean layers:
+This phase adds review management and product rating aggregation with the same clean layers:
 
 - schema layer
 - repository layer
@@ -153,7 +157,7 @@ This phase adds full Product CRUD with the same clean layers:
 
 ## How Request Data Flows Through the App
 
-For a product request, the flow is:
+For a review request, the flow is:
 
 1. The route receives the HTTP request.
 2. The route sends the validated data to the service layer.
@@ -164,34 +168,41 @@ For a product request, the flow is:
 
 This gives you a clean separation between API logic and database logic.
 
-## Product Endpoints
+## Review Endpoints
 
-- `POST /api/v1/products`
-- `GET /api/v1/products`
-- `GET /api/v1/products/search`
-- `GET /api/v1/products/{product_id}`
-- `PATCH /api/v1/products/{product_id}`
-- `DELETE /api/v1/products/{product_id}`
+- `POST /api/v1/products/{product_id}/reviews`
+- `GET /api/v1/products/{product_id}/reviews`
+- `GET /api/v1/reviews/{review_id}`
+- `PATCH /api/v1/reviews/{review_id}`
+- `DELETE /api/v1/reviews/{review_id}`
 
-## How Product CRUD Works
+## Rating Endpoints
 
-- Products belong to categories.
-- The service layer validates that `category_id` exists before create or category change.
-- Product delete is a soft delete, which means the row stays in the database and `is_active` becomes `false`.
-- Product list supports simple filters and pagination.
-- Product search supports searching by name and description.
+- `GET /api/v1/products/{product_id}/rating`
+- `GET /api/v1/products/with-ratings`
 
-## How Category Validation Works
+## How Review and Rating Logic Works
 
-Before creating a product, the service checks that the category exists.
+- Reviews belong to products.
+- Rating validation is handled by Pydantic and must stay between `1` and `5`.
+- Average rating is calculated from review rows when needed.
+- Average rating is not stored directly on the product table in this phase.
 
-Before updating `category_id`, the service checks that the new category exists.
+## Why Calculated Ratings Are Useful
 
-If the category does not exist, the API returns:
+For beginner learning, calculated ratings are simpler and safer than storing duplicate rating data on the `products` table.
+
+This avoids keeping two sources of truth in sync every time a review is created, updated, or deleted.
+
+## How Product Existence Validation Works
+
+Before creating a review, listing reviews, or calculating rating for a product, the service checks that the product exists.
+
+If the product does not exist, the API returns:
 
 ```text
 404 Not Found
-Category not found
+Product not found
 ```
 
 ## Run the Server
@@ -206,86 +217,59 @@ uvicorn app.main:app --reload
 python scripts/seed_db.py
 ```
 
-## Test Product CRUD
+## Test Review CRUD and Rating Endpoints
 
-Create product:
+Create review:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/products" \
+curl -X POST "http://127.0.0.1:8000/api/v1/products/1/reviews" \
 -H "Content-Type: application/json" \
 -d '{
-  "name": "Organic Greek Yogurt",
-  "category_id": 1,
-  "price": 6.99,
-  "description": "Creamy organic Greek yogurt",
-  "is_organic": true,
-  "stock_quantity": 25
+  "rating": 5,
+  "reviewer_name": "Sazzad",
+  "review_text": "Fresh and high quality product."
 }'
 ```
 
-List products:
+List reviews for product:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/products"
+curl "http://127.0.0.1:8000/api/v1/products/1/reviews"
 ```
 
-List active products only:
+Get one review:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/products?is_active=true"
+curl "http://127.0.0.1:8000/api/v1/reviews/1"
 ```
 
-Filter by category:
+Update review:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/products?category_id=1"
-```
-
-Filter organic products:
-
-```bash
-curl "http://127.0.0.1:8000/api/v1/products?is_organic=true"
-```
-
-Filter by max price:
-
-```bash
-curl "http://127.0.0.1:8000/api/v1/products?max_price=10"
-```
-
-Pagination:
-
-```bash
-curl "http://127.0.0.1:8000/api/v1/products?limit=5&offset=0"
-```
-
-Search products:
-
-```bash
-curl "http://127.0.0.1:8000/api/v1/products/search?query=honey"
-```
-
-Get product by ID:
-
-```bash
-curl "http://127.0.0.1:8000/api/v1/products/1"
-```
-
-Update product:
-
-```bash
-curl -X PATCH "http://127.0.0.1:8000/api/v1/products/1" \
+curl -X PATCH "http://127.0.0.1:8000/api/v1/reviews/1" \
 -H "Content-Type: application/json" \
 -d '{
-  "price": 7.49,
-  "stock_quantity": 40
+  "rating": 4,
+  "review_text": "Still good, but delivery was a little late."
 }'
 ```
 
-Soft delete product:
+Delete review:
 
 ```bash
-curl -X DELETE "http://127.0.0.1:8000/api/v1/products/1"
+curl -X DELETE "http://127.0.0.1:8000/api/v1/reviews/1"
+```
+
+Get product rating:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/products/1/rating"
+```
+
+Get products with ratings:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/products/with-ratings"
 ```
 
 ## Existing Endpoints Still Work
@@ -293,6 +277,7 @@ curl -X DELETE "http://127.0.0.1:8000/api/v1/products/1"
 - `GET /`
 - `GET /api/v1/health`
 - Category CRUD endpoints
+- Product CRUD endpoints
 - Swagger docs: `http://127.0.0.1:8000/docs`
 
 ## SQLite Database File
@@ -323,33 +308,32 @@ python scripts/seed_db.py
 
 ## What This Phase Sets Up
 
-- Product CRUD endpoints
-- Pydantic request and response schemas for products
-- A simple repository layer for product database access
-- A simple service layer for product business rules
-- Product filters and simple product search
+- Review CRUD endpoints
+- Rating validation using Pydantic
+- Product rating summary endpoint
+- Product list endpoint with calculated ratings
+- A simple repository and service flow for review logic
 - The existing database models and seed script from earlier phases
 
 ## What Still Does Not Exist Yet
 
-- No Review CRUD yet
 - No Order APIs yet
 - No AI shopping assistant logic yet
 
-Product ratings are not implemented yet. Review CRUD and ratings start in Phase 5.
+Order APIs start in Phase 6.
 
 `/docs` and `/api/v1/health` should still work exactly as before.
 
-## Notes Before Phase 5
+## Notes Before Phase 6
 
-Before moving to Phase 5, make sure you understand:
+Before moving to Phase 6, make sure you understand:
 
 - How FastAPI creates and runs an application from `app/main.py`
 - How routers help organize endpoints
 - How request validation works with Pydantic schemas
 - Why the route layer should not query the database directly
-- Why the service layer handles business rules like category validation
+- Why the service layer validates product existence before review operations
 - Why the repository layer is responsible for SQLAlchemy queries
 - How `Depends(get_db)` provides a database session to routes
-- Why soft delete keeps product rows available for later business rules
-- How filters and pagination shape list results
+- How `func.avg` and `func.count` are used to calculate rating data
+- Why calculated rating values avoid storing duplicate data too early
