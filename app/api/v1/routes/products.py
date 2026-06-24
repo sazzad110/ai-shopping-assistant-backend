@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.schemas.common import MessageResponse
 from app.schemas.product import (
     ProductCreate,
     ProductResponse,
@@ -83,7 +84,7 @@ def update_product(
     return product_service.update_product(db, product_id, product_data)
 
 
-@router.delete("/{product_id}")
+@router.delete("/{product_id}", response_model=MessageResponse)
 def delete_product(product_id: int, db: Session = Depends(get_db)):
     product_service.delete_product(db, product_id)
     return {"message": "Product deleted successfully"}

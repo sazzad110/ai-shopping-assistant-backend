@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.schemas.common import MessageResponse
 from app.schemas.review import ReviewCreate, ReviewResponse, ReviewUpdate
 from app.services import review_service
 
@@ -42,7 +43,7 @@ def update_review(
     return review_service.update_review(db, review_id, review_data)
 
 
-@router.delete("/reviews/{review_id}")
+@router.delete("/reviews/{review_id}", response_model=MessageResponse)
 def delete_review(review_id: int, db: Session = Depends(get_db)):
     review_service.delete_review(db, review_id)
     return {"message": "Review deleted successfully"}

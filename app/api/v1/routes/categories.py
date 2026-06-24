@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from app.schemas.common import MessageResponse
 from app.services import category_service
 
 
@@ -39,7 +40,7 @@ def update_category(
     return category_service.update_category(db, category_id, category_data)
 
 
-@router.delete("/{category_id}")
+@router.delete("/{category_id}", response_model=MessageResponse)
 def delete_category(category_id: int, db: Session = Depends(get_db)):
     category_service.delete_category(db, category_id)
     return {"message": "Category deleted successfully"}

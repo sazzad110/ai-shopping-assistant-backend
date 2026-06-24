@@ -4,6 +4,7 @@ from app.schemas.category import (
     CategoryResponse,
     CategoryUpdate,
 )
+from app.schemas.common import MessageResponse
 from app.schemas.order import (
     OrderCreate,
     OrderItemCreate,
@@ -31,6 +32,7 @@ __all__ = [
     "CategoryCreate",
     "CategoryUpdate",
     "CategoryResponse",
+    "MessageResponse",
     "OrderItemCreate",
     "OrderCreate",
     "OrderItemResponse",
