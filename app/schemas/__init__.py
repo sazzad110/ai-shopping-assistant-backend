@@ -4,6 +4,7 @@ from app.schemas.category import (
     CategoryResponse,
     CategoryUpdate,
 )
+from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
 from app.schemas.common import MessageResponse
 from app.schemas.order import (
     OrderCreate,
@@ -32,6 +33,9 @@ __all__ = [
     "CategoryCreate",
     "CategoryUpdate",
     "CategoryResponse",
+    "ChatMessage",
+    "ChatRequest",
+    "ChatResponse",
     "MessageResponse",
     "OrderItemCreate",
     "OrderCreate",

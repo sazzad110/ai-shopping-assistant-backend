@@ -9,6 +9,54 @@ curl http://127.0.0.1:8000/
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
+## Chat
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
+-H "Content-Type: application/json" \
+-d '{
+  "message": "I want organic honey under $20 with 4.5+ rating"
+}'
+```
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
+-H "Content-Type: application/json" \
+-d '{
+  "message": "I want to buy honey"
+}'
+```
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
+-H "Content-Type: application/json" \
+-d '{
+  "message": "I confirm I want to order product ID 1 quantity 2",
+  "customer_name": "Sazzad Hasan",
+  "customer_email": "sazzad@example.com"
+}'
+```
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
+-H "Content-Type: application/json" \
+-d '{
+  "history": [
+    {
+      "role": "user",
+      "content": "I want organic honey under $20"
+    },
+    {
+      "role": "assistant",
+      "content": "#1. Raw Honey (ID: 5) - $12.99 - rating 4.8. Would you like to order it?"
+    }
+  ],
+  "message": "yes, order quantity 1",
+  "customer_name": "Sazzad Hasan",
+  "customer_email": "sazzad@example.com"
+}'
+```
+
 ## Categories
 
 ```bash

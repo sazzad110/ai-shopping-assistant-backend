@@ -6,6 +6,10 @@ This backend uses a simple layered architecture to keep the code clear and begin
 
 `Route -> Service -> Repository -> Database`
 
+## AI Flow
+
+`Chat Route -> Agent Service -> LangChain Agent -> Tools -> Existing Services/Repositories -> Database`
+
 ## Layer Responsibilities
 
 ### Route layer
@@ -21,6 +25,13 @@ This backend uses a simple layered architecture to keep the code clear and begin
 - Validates things like duplicate names, stock, and product existence
 - Decides when to raise `HTTPException`
 - Keeps route files thin
+
+### Agent layer
+
+- Adds conversational behavior on top of the existing backend
+- Uses LangChain tools
+- Reuses existing business logic instead of replacing CRUD
+- Does not connect to SQLite manually
 
 ### Repository layer
 
@@ -39,3 +50,4 @@ This backend uses a simple layered architecture to keep the code clear and begin
 - Business logic is not mixed with HTTP code
 - SQLAlchemy queries stay in one place
 - The project is easier to explain in a portfolio or interview
+- AI tools do not replace CRUD; they reuse CRUD and service logic
