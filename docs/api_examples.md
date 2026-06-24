@@ -19,6 +19,21 @@ curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
 }'
 ```
 
+## Streamlit
+
+Run the frontend:
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
+Optional custom backend base URL:
+
+```bash
+export FASTAPI_BASE_URL=http://127.0.0.1:8000/api/v1
+streamlit run frontend/streamlit_app.py
+```
+
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
 -H "Content-Type: application/json" \

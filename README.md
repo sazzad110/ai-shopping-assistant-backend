@@ -1,81 +1,78 @@
 # AI Shopping Assistant Backend
 
-Portfolio-ready FastAPI backend for an organic grocery shopping assistant.  
-This project now includes a LangChain + Groq conversational shopping agent layered on top of a clean CRUD backend.
+Portfolio-ready FastAPI backend with a Streamlit frontend for an organic grocery shopping assistant.
 
-Current phase: **Phase 8 - LangChain + Groq AI Shopping Agent**
+Current phase: **Phase 9 - Streamlit Frontend**
 
-## What This Backend Does
+## Project Overview
 
-- manages categories
-- manages products with filters, search, ratings, and soft delete
-- manages reviews and rating aggregation
-- manages orders with stock validation
-- exposes a conversational AI shopping assistant at `POST /api/v1/chat`
-- keeps the CRUD backend as the source of truth
+This project now has:
+
+- a FastAPI backend as the source of truth
+- a Streamlit frontend for browsing, ordering, and chatting
+- a LangChain + Groq AI shopping assistant
+
+The frontend does not access SQLite directly.  
+It talks to the FastAPI backend through HTTP requests.
+
+## What The System Does
+
+- browse products with ratings
+- search and filter products
+- submit product reviews
+- add products to a cart
+- create orders
+- view recent orders
+- update order status
+- chat with an AI shopping assistant
 
 ## Tech Stack
 
 - Python
 - FastAPI
-- Uvicorn
 - SQLAlchemy ORM
 - SQLite
 - Pydantic and Pydantic Settings
 - LangChain
-- Groq via `langchain-groq`
-- python-dotenv
+- Groq
+- Streamlit
+- requests
 
-## Features Completed So Far
+## Architecture
 
-- FastAPI foundation
-- SQLAlchemy models and local database setup
-- Category CRUD
-- Product CRUD, search, and soft delete
-- Review CRUD
-- Product rating aggregation
-- Order APIs with stock validation
-- centralized error handling
-- reusable response schemas
-- LangChain tool-based chat assistant
-
-## AI Agent Overview
-
-The AI shopping assistant is available at:
-
-- `POST /api/v1/chat`
-
-The agent:
-
-- uses LangChain tools
-- uses Groq as the LLM provider
-- reuses existing SQLAlchemy session and backend services
-- does not query SQLite manually
-- does not replace CRUD logic
-
-Image matching is intentionally not included yet.  
-No Streamlit frontend is included in this phase.
-
-## Architecture Overview
-
-CRUD flow:
+Backend flow:
 
 `Route -> Service -> Repository -> SQLAlchemy Model -> Database`
 
+Frontend flow:
+
+`Streamlit UI -> frontend/api_client.py -> FastAPI backend`
+
 AI flow:
 
-`Chat Route -> Agent Service -> LangChain Agent -> Tools -> Existing Services/Repositories -> Database`
-
-The AI tools reuse the existing backend logic. They do not create their own database connection and do not bypass the application's business rules.
+`Streamlit chat UI -> POST /api/v1/chat -> Agent Service -> LangChain/Groq Agent -> Tools -> Existing Services/Repositories -> Database`
 
 More detail:
 
 - [docs/architecture.md](/Users/sazzad/personal-projects/ai-shopping-assistant-backend/docs/architecture.md)
 - [docs/api_examples.md](/Users/sazzad/personal-projects/ai-shopping-assistant-backend/docs/api_examples.md)
 
+## Why The Frontend Uses HTTP
+
+The Streamlit app is only the frontend.
+
+It does not:
+
+- import backend repositories
+- import backend services
+- query SQLite directly
+- duplicate business logic
+
+This keeps the backend as the source of truth and makes the app easier to scale later.
+
 ## Environment Variables
 
-Copy `.env.example` to `.env`:
+Backend `.env`:
 
 ```env
 PROJECT_NAME="AI Shopping Assistant Backend"
@@ -86,302 +83,234 @@ GROQ_MODEL="qwen/qwen3-32b"
 AI_AGENT_ENABLED=true
 ```
 
-Important:
+Frontend optional environment variable:
 
-- `GROQ_API_KEY` is required only for `/api/v1/chat`
-- the rest of the backend still works without Groq
-- if the key is missing, the chat endpoint returns a clean error
+```env
+FASTAPI_BASE_URL=http://127.0.0.1:8000/api/v1
+```
 
-## Setup Instructions
+If `FASTAPI_BASE_URL` is not set, the frontend uses that default automatically.
 
-### 1. Create a virtual environment
+## Setup
+
+### 1. Create and activate virtual environment
 
 ```bash
 python -m venv venv
-```
-
-Or:
-
-```bash
-python3 -m venv venv
-```
-
-### 2. Activate the virtual environment
-
-Windows:
-
-```bash
-venv\Scripts\activate
-```
-
-macOS/Linux:
-
-```bash
 source venv/bin/activate
 ```
 
-### 3. Install dependencies
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Running Locally
+## Run The Backend
 
 ```bash
+source venv/bin/activate
 uvicorn app.main:app --reload
 ```
 
-Swagger docs:
+Backend URLs:
 
-- `http://127.0.0.1:8000/docs`
+- API root: `http://127.0.0.1:8000/`
+- Health: `http://127.0.0.1:8000/api/v1/health`
+- Swagger docs: `http://127.0.0.1:8000/docs`
 
-Core health endpoints:
+## Run The Frontend
 
-- `GET http://127.0.0.1:8000/`
-- `GET http://127.0.0.1:8000/api/v1/health`
+In another terminal:
 
-## Seeding the Database
+```bash
+source venv/bin/activate
+streamlit run frontend/streamlit_app.py
+```
+
+Frontend URL:
+
+- `http://localhost:8501`
+
+## Streamlit Frontend Pages
+
+### Home
+
+- backend health/status check
+- project overview
+- quick navigation tips
+
+### Products
+
+- product cards in a grid
+- rating display
+- simple filters
+- add to cart
+- view reviews
+- submit reviews
+
+### Cart / Order
+
+- customer name and email
+- quantity controls
+- remove item button
+- estimated total
+- create order through backend API
+
+### AI Assistant
+
+- chat UI with `st.chat_message`
+- chat history in session state
+- sends messages to `POST /api/v1/chat`
+- backend agent decides whether to search, rate, or checkout
+
+### Orders
+
+- recent orders list
+- nested order items
+- optional status update UI
+
+## Product Browsing
+
+The frontend loads products from:
+
+- `GET /api/v1/products/with-ratings`
+
+Then Streamlit applies simple display filters for:
+
+- search text
+- organic only
+- max price
+- active products only
+
+This is acceptable for beginner learning and small datasets.  
+For larger production datasets, backend-side filtering should be preferred.
+
+## Cart And Order Creation
+
+The cart is stored in `st.session_state.cart`.
+
+When the user places an order, Streamlit sends:
+
+- customer name
+- customer email
+- product IDs and quantities
+
+to:
+
+- `POST /api/v1/orders`
+
+The backend still calculates the final trusted total and validates stock.
+
+## Review Submission
+
+On the Products page, the user can submit:
+
+- reviewer name
+- rating
+- review text
+
+The frontend sends that to:
+
+- `POST /api/v1/products/{product_id}/reviews`
+
+## AI Chat
+
+The chat page is pure UI.  
+It does not call the order API directly and does not query product data directly.
+
+Instead, it sends chat requests to:
+
+- `POST /api/v1/chat`
+
+The backend agent then uses tools to:
+
+- search products
+- get ratings
+- create an order through the existing order service
+
+If `GROQ_API_KEY` is missing, the backend returns a friendly error and the rest of the app still works.
+
+## Orders Page
+
+The Orders page uses:
+
+- `GET /api/v1/orders`
+- `PATCH /api/v1/orders/{order_id}/status`
+
+It shows:
+
+- order ID
+- customer info
+- status
+- total amount
+- created time
+- nested items
+
+## Seeding Database
 
 ```bash
 python scripts/seed_db.py
 ```
 
-Or:
+The seed script is safe to run multiple times because it skips seeding if data already exists.
 
-```bash
-python3 scripts/seed_db.py
-```
+## Troubleshooting
 
-Seed behavior:
+### Backend not running
 
-- adds starter categories, products, and reviews
-- skips seeding if data already exists
-- does not duplicate seed rows
+- start FastAPI with `uvicorn app.main:app --reload`
+- verify `http://127.0.0.1:8000/api/v1/health`
 
-The SQLite file appears in the project root as `shopping_assistant.db`.
+### Groq key missing
 
-## API Documentation
+- set `GROQ_API_KEY` in `.env`
+- chat endpoint depends on it, but the rest of the backend does not
 
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- More curl examples: [docs/api_examples.md](/Users/sazzad/personal-projects/ai-shopping-assistant-backend/docs/api_examples.md)
+### No products showing
 
-## API Endpoints Summary
+- run `python scripts/seed_db.py`
+- confirm backend is using the correct SQLite file
 
-### Health
+### Order fails due to stock
 
-- `GET /`
-- `GET /api/v1/health`
-
-### Chat
-
-- `POST /api/v1/chat`
-
-### Categories
-
-- `POST /api/v1/categories`
-- `GET /api/v1/categories`
-- `GET /api/v1/categories/{category_id}`
-- `PATCH /api/v1/categories/{category_id}`
-- `DELETE /api/v1/categories/{category_id}`
-
-### Products
-
-- `POST /api/v1/products`
-- `GET /api/v1/products`
-- `GET /api/v1/products/search`
-- `GET /api/v1/products/with-ratings`
-- `GET /api/v1/products/{product_id}`
-- `GET /api/v1/products/{product_id}/rating`
-- `PATCH /api/v1/products/{product_id}`
-- `DELETE /api/v1/products/{product_id}`
-
-### Reviews
-
-- `POST /api/v1/products/{product_id}/reviews`
-- `GET /api/v1/products/{product_id}/reviews`
-- `GET /api/v1/reviews/{review_id}`
-- `PATCH /api/v1/reviews/{review_id}`
-- `DELETE /api/v1/reviews/{review_id}`
-
-### Orders
-
-- `POST /api/v1/orders`
-- `GET /api/v1/orders`
-- `GET /api/v1/orders/{order_id}`
-- `PATCH /api/v1/orders/{order_id}/status`
-
-## Curl Examples By Domain
-
-### Health
-
-```bash
-curl http://127.0.0.1:8000/
-curl http://127.0.0.1:8000/api/v1/health
-```
-
-### Chat
-
-Basic product search:
-
-```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
--H "Content-Type: application/json" \
--d '{
-  "message": "I want organic honey under $20 with 4.5+ rating"
-}'
-```
-
-Ask to buy without enough detail:
-
-```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
--H "Content-Type: application/json" \
--d '{
-  "message": "I want to buy honey"
-}'
-```
-
-Order with explicit confirmation and customer details:
-
-```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
--H "Content-Type: application/json" \
--d '{
-  "message": "I confirm I want to order product ID 1 quantity 2",
-  "customer_name": "Sazzad Hasan",
-  "customer_email": "sazzad@example.com"
-}'
-```
-
-Chat with history:
-
-```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/chat" \
--H "Content-Type: application/json" \
--d '{
-  "history": [
-    {
-      "role": "user",
-      "content": "I want organic honey under $20"
-    },
-    {
-      "role": "assistant",
-      "content": "#1. Raw Honey (ID: 5) - $12.99 - rating 4.8. Would you like to order it?"
-    }
-  ],
-  "message": "yes, order quantity 1",
-  "customer_name": "Sazzad Hasan",
-  "customer_email": "sazzad@example.com"
-}'
-```
-
-### Categories, Products, Reviews, Ratings, Orders
-
-See:
-
-- [docs/api_examples.md](/Users/sazzad/personal-projects/ai-shopping-assistant-backend/docs/api_examples.md)
-
-## How the AI Tools Work
-
-### `search_products`
-
-- searches existing products by name and description
-- uses the existing SQLAlchemy session
-- returns only active products
-- supports organic and max-price filtering
-
-### `get_rating`
-
-- uses the existing rating logic
-- returns product rating summary as JSON text
-
-### `checkout`
-
-- uses the existing order service
-- creates a one-item order
-- respects existing stock validation and order logic
-- returns a friendly success or error message
-
-## Why the Agent Uses Services and Repositories
-
-The AI layer is only a conversational layer.  
-The existing backend logic remains the source of truth.
-
-That means the tools:
-
-- do not open raw SQLite connections
-- do not run manual SQL outside SQLAlchemy
-- do not bypass order, stock, or rating logic
-
-## Error Response Format
-
-Application errors follow a consistent structure:
-
-```json
-{
-  "success": false,
-  "error": {
-    "message": "Product not found"
-  }
-}
-```
-
-Validation errors:
-
-```json
-{
-  "success": false,
-  "error": {
-    "message": "Validation error",
-    "details": []
-  }
-}
-```
-
-## Soft Delete for Products
-
-Deleting a product marks `is_active = false` instead of removing the row.
-
-## Why Order Delete Is Not Implemented
-
-Orders are business records, so status updates are safer than hard deletes.
+- reduce requested quantity
+- check current stock on the Products page
 
 ## Portfolio Talking Points
 
-- clean layered architecture
-- SQLAlchemy ORM and relational backend design
-- Pydantic validation
-- business logic in services
-- centralized error handling
-- Swagger docs for exploration
-- AI-ready backend foundation
-- LangChain tools reusing backend logic instead of bypassing it
+- clean layered backend architecture
+- Streamlit frontend separated from backend business logic
+- SQLAlchemy ORM for relational data
+- Pydantic validation and structured responses
+- AI-ready chat layer built on existing backend services
+- product reviews, ratings, and order workflows
 
 ## Future Roadmap
 
-- Phase 9 or later image-aware shopping improvements
-- optional image search later
+- image-aware shopping features later
+- payment flow later
+- authentication later
 - Alembic migrations later
 - PostgreSQL later
-- authentication later
 
 ## Existing Endpoints Still Work
 
 - `GET /`
 - `GET /api/v1/health`
-- Category CRUD endpoints
-- Product CRUD endpoints
-- Review CRUD endpoints
+- Category CRUD
+- Product CRUD
+- Review CRUD
 - Rating endpoints
 - Order endpoints
+- Chat endpoint
 
 ## Before The Next Phase
 
 Make sure you understand:
 
-- how the AI agent sits on top of the CRUD backend
-- why the agent is not the source of truth
-- why the agent is created per request instead of globally
-- how tool-calling lets the LLM use existing backend functionality
-- why missing `GROQ_API_KEY` should only affect chat, not the whole app
+- why Streamlit stays thin and uses HTTP
+- why the backend remains the source of truth
+- how `st.session_state` is used for cart and chat memory
+- how the AI chat page differs from direct CRUD pages
+- how frontend and backend can evolve independently
