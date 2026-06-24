@@ -34,3 +34,4 @@ htmlcov/
 
 # Local helper scripts or downloads
 get-pip.py
+.env
