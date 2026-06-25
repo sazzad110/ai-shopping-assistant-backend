@@ -1,30 +1,48 @@
-# AI Shopping Assistant Backend
+# AI Shopping Assistant
 
-Portfolio-ready FastAPI backend with a Streamlit frontend for an organic grocery shopping assistant.
+An AI-first shopping assistant for an organic grocery store, built with FastAPI, Streamlit, SQLAlchemy, LangChain, and Groq.
 
-Current phase: **Phase 9 - Streamlit Frontend**
+This project combines a traditional e-commerce backend with a conversational AI assistant that can:
 
-## Project Overview
+- recommend products from live backend data
+- check ratings before suggesting items
+- understand follow-up messages like "order the first product"
+- create orders through backend business logic instead of bypassing it
 
-This project now has:
+The strongest part of this project is the AI assistant architecture:
 
-- a FastAPI backend as the source of truth
-- a Streamlit frontend for browsing, ordering, and chatting
-- a LangChain + Groq AI shopping assistant
+`Streamlit Chat UI -> FastAPI /api/v1/chat -> LangChain/Groq Agent -> Tools -> Existing Services -> Repositories -> Database`
 
-The frontend does not access SQLite directly.  
-It talks to the FastAPI backend through HTTP requests.
+## Why This Project Stands Out
 
-## What The System Does
+Most demo chat apps stop at conversation. This one connects an LLM to real application logic.
+
+The assistant does not invent product data and does not write directly to the database. It uses backend tools that call the same service layer used by the normal API. That means the AI flow stays aligned with the rest of the system:
+
+- product search comes from repository-backed data
+- rating checks come from the review service
+- order creation goes through stock validation and order business rules
+- the backend remains the source of truth
+
+## Core Features
+
+### AI Assistant
+
+- natural-language product discovery
+- filter-aware recommendations such as organic preference and max price
+- rating-aware suggestions using review data
+- follow-up chat context using prior message history
+- chat-driven checkout through agent tools
+- safe ordering rules that require confirmation before purchase
+
+### Shopping Features
 
 - browse products with ratings
-- search and filter products
-- submit product reviews
+- submit reviews
 - add products to a cart
-- create orders
+- place direct orders from the cart
 - view recent orders
 - update order status
-- chat with an AI shopping assistant
 
 ## Tech Stack
 
@@ -32,7 +50,8 @@ It talks to the FastAPI backend through HTTP requests.
 - FastAPI
 - SQLAlchemy ORM
 - SQLite
-- Pydantic and Pydantic Settings
+- Pydantic
+- Pydantic Settings
 - LangChain
 - Groq
 - Streamlit
@@ -40,35 +59,191 @@ It talks to the FastAPI backend through HTTP requests.
 
 ## Architecture
 
-Backend flow:
+### Standard Backend Flow
 
 `Route -> Service -> Repository -> SQLAlchemy Model -> Database`
 
-Frontend flow:
+This is used for products, reviews, ratings, orders, and related CRUD operations.
 
-`Streamlit UI -> frontend/api_client.py -> FastAPI backend`
+### Frontend Flow
 
-AI flow:
+`Streamlit UI -> frontend/api_client.py -> FastAPI API`
 
-`Streamlit chat UI -> POST /api/v1/chat -> Agent Service -> LangChain/Groq Agent -> Tools -> Existing Services/Repositories -> Database`
+The Streamlit app is a real frontend. It does not import repositories, query SQLite directly, or duplicate backend logic.
 
-More detail:
+### AI Assistant Flow
 
-- [docs/architecture.md](/Users/sazzad/personal-projects/ai-shopping-assistant-backend/docs/architecture.md)
-- [docs/api_examples.md](/Users/sazzad/personal-projects/ai-shopping-assistant-backend/docs/api_examples.md)
+`User Message`
+-> `frontend/streamlit_app.py`
+-> `frontend/api_client.py::chat_with_agent(...)`
+-> `POST /api/v1/chat`
+-> `app/api/v1/routes/chat.py`
+-> `app/services/agent_service.py`
+-> `app/agent/shopping_agent.py`
+-> `app/agent/tools.py`
+-> existing services and repositories
+-> database
+-> assistant reply returned to Streamlit
 
-## Why The Frontend Uses HTTP
+## AI Assistant Deep Dive
 
-The Streamlit app is only the frontend.
+This project is designed so the AI assistant is useful, not just flashy.
 
-It does not:
+### How Chat Works
 
-- import backend repositories
-- import backend services
-- query SQLite directly
-- duplicate business logic
+The Streamlit frontend stores conversation history in `st.session_state.chat_messages`.
 
-This keeps the backend as the source of truth and makes the app easier to scale later.
+Each time the user sends a new message:
+
+1. Streamlit sends the latest message as `message`
+2. Streamlit sends earlier messages as `history`
+3. FastAPI validates the request with `ChatRequest`
+4. `agent_service.chat_with_agent(...)` forwards the request to the LangChain agent
+5. the agent reads the system prompt and decides whether to call tools
+6. tool results are fed back into the model
+7. the final reply is returned to the frontend and stored in session state
+
+### Why the Agent Is Cleanly Integrated
+
+The assistant does not create orders directly from the frontend and does not parse database details on the client side.
+
+Instead:
+
+- Streamlit handles UI and temporary chat memory
+- FastAPI handles request validation
+- LangChain handles reasoning and tool selection
+- tools act as adapters to backend logic
+- services enforce business rules
+- repositories handle database access
+
+### Tools Used By the Agent
+
+Defined in [app/agent/tools.py](/Users/sazzad/personal-projects/ai-shopping-assistant-backend/app/agent/tools.py):
+
+- `search_products`
+- `get_rating`
+- `checkout`
+
+These tools are created per request using the current SQLAlchemy session. This is important because:
+
+- tools need the active DB session
+- missing Groq configuration should not break the full app at startup
+- chat stays isolated from app bootstrapping concerns
+
+### Example AI Flow
+
+User:
+
+`I want organic honey under $10 with rating 4`
+
+Typical agent behavior:
+
+1. reads the system prompt from [app/agent/prompts.py](/Users/sazzad/personal-projects/ai-shopping-assistant-backend/app/agent/prompts.py)
+2. calls `search_products(query="honey", max_price=10, is_organic=True)`
+3. gets matching products from the database
+4. calls `get_rating(product_id=...)` for relevant matches
+5. filters out weak matches
+6. replies with a numbered list including product IDs like `(ID: 5)`
+
+Follow-up user message:
+
+`I want to order the first product`
+
+Because the frontend sends previous conversation history, the agent can look at its earlier reply, see which product was listed first, recover the correct product ID, and continue the order flow safely.
+
+It will still ask for missing details or confirmation before calling `checkout`.
+
+## Project Structure
+
+```text
+app/
+  agent/
+    prompts.py
+    shopping_agent.py
+    tools.py
+  api/v1/routes/
+    chat.py
+    orders.py
+    products.py
+    reviews.py
+    categories.py
+    health.py
+  core/
+    config.py
+    database.py
+    exceptions.py
+  models/
+  repositories/
+  schemas/
+  services/
+
+frontend/
+  api_client.py
+  streamlit_app.py
+  ui_helpers.py
+
+scripts/
+  seed_db.py
+```
+
+## Frontend Pages
+
+### Home
+
+- project overview
+- backend health checks
+- quick navigation guidance
+
+### Products
+
+- browse products in a grid
+- view prices, stock, and ratings
+- open reviews
+- submit new reviews
+- add items to cart
+
+### Cart / Order
+
+- manage cart state in Streamlit session state
+- collect customer name and email
+- place order through `POST /api/v1/orders`
+
+### AI Assistant
+
+- chat UI using `st.chat_message`
+- sends `message + history` to `POST /api/v1/chat`
+- displays AI-generated product recommendations
+- supports conversational ordering through tools
+
+### Orders
+
+- list recent orders
+- inspect nested order items
+- update order status
+
+## API Highlights
+
+### Chat Endpoint
+
+`POST /api/v1/chat`
+
+Purpose:
+
+- receive a user message
+- receive prior chat history
+- run the LangChain/Groq shopping agent
+- return the final assistant reply
+
+### Order Endpoint
+
+`POST /api/v1/orders`
+
+Purpose:
+
+- create standard non-chat orders from the cart UI
+- validate product availability
+- validate stock
+- calculate trusted totals on the backend
 
 ## Environment Variables
 
@@ -89,11 +264,11 @@ Frontend optional environment variable:
 FASTAPI_BASE_URL=http://127.0.0.1:8000/api/v1
 ```
 
-If `FASTAPI_BASE_URL` is not set, the frontend uses that default automatically.
+If `FASTAPI_BASE_URL` is not set, the frontend falls back to the local development default.
 
-## Setup
+## Local Setup
 
-### 1. Create and activate virtual environment
+### 1. Create a virtual environment
 
 ```bash
 python -m venv venv
@@ -106,20 +281,25 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run The Backend
+### 3. Seed the database
 
 ```bash
-source venv/bin/activate
+python scripts/seed_db.py
+```
+
+### 4. Run the backend
+
+```bash
 uvicorn app.main:app --reload
 ```
 
 Backend URLs:
 
 - API root: `http://127.0.0.1:8000/`
-- Health: `http://127.0.0.1:8000/api/v1/health`
-- Swagger docs: `http://127.0.0.1:8000/docs`
+- health: `http://127.0.0.1:8000/api/v1/health`
+- docs: `http://127.0.0.1:8000/docs`
 
-## Run The Frontend
+### 5. Run the frontend
 
 In another terminal:
 
@@ -132,185 +312,48 @@ Frontend URL:
 
 - `http://localhost:8501`
 
-## Streamlit Frontend Pages
+## Portfolio Talking Points
 
-### Home
-
-- backend health/status check
-- project overview
-- quick navigation tips
-
-### Products
-
-- product cards in a grid
-- rating display
-- simple filters
-- add to cart
-- view reviews
-- submit reviews
-
-### Cart / Order
-
-- customer name and email
-- quantity controls
-- remove item button
-- estimated total
-- create order through backend API
-
-### AI Assistant
-
-- chat UI with `st.chat_message`
-- chat history in session state
-- sends messages to `POST /api/v1/chat`
-- backend agent decides whether to search, rate, or checkout
-
-### Orders
-
-- recent orders list
-- nested order items
-- optional status update UI
-
-## Product Browsing
-
-The frontend loads products from:
-
-- `GET /api/v1/products/with-ratings`
-
-Then Streamlit applies simple display filters for:
-
-- search text
-- organic only
-- max price
-- active products only
-
-This is acceptable for beginner learning and small datasets.  
-For larger production datasets, backend-side filtering should be preferred.
-
-## Cart And Order Creation
-
-The cart is stored in `st.session_state.cart`.
-
-When the user places an order, Streamlit sends:
-
-- customer name
-- customer email
-- product IDs and quantities
-
-to:
-
-- `POST /api/v1/orders`
-
-The backend still calculates the final trusted total and validates stock.
-
-## Review Submission
-
-On the Products page, the user can submit:
-
-- reviewer name
-- rating
-- review text
-
-The frontend sends that to:
-
-- `POST /api/v1/products/{product_id}/reviews`
-
-## AI Chat
-
-The chat page is pure UI.  
-It does not call the order API directly and does not query product data directly.
-
-Instead, it sends chat requests to:
-
-- `POST /api/v1/chat`
-
-The backend agent then uses tools to:
-
-- search products
-- get ratings
-- create an order through the existing order service
-
-If `GROQ_API_KEY` is missing, the backend returns a friendly error and the rest of the app still works.
-
-## Orders Page
-
-The Orders page uses:
-
-- `GET /api/v1/orders`
-- `PATCH /api/v1/orders/{order_id}/status`
-
-It shows:
-
-- order ID
-- customer info
-- status
-- total amount
-- created time
-- nested items
-
-## Seeding Database
-
-```bash
-python scripts/seed_db.py
-```
-
-The seed script is safe to run multiple times because it skips seeding if data already exists.
+- built a layered FastAPI backend with clear route, service, and repository separation
+- added a Streamlit frontend that talks to the backend over HTTP instead of bypassing it
+- integrated a LangChain + Groq shopping assistant with tool calling
+- designed the AI flow so it reuses existing backend business logic rather than duplicating it
+- supported conversational follow-ups by sending prior chat history from Streamlit to FastAPI
+- separated normal cart checkout from chat-agent checkout for cleaner architecture
 
 ## Troubleshooting
 
-### Backend not running
+### Chat endpoint fails
 
-- start FastAPI with `uvicorn app.main:app --reload`
-- verify `http://127.0.0.1:8000/api/v1/health`
+- confirm `GROQ_API_KEY` is set in `.env`
+- confirm `AI_AGENT_ENABLED=true`
+- verify backend is running at `http://127.0.0.1:8000`
 
-### Groq key missing
-
-- set `GROQ_API_KEY` in `.env`
-- chat endpoint depends on it, but the rest of the backend does not
-
-### No products showing
+### No products appear
 
 - run `python scripts/seed_db.py`
-- confirm backend is using the correct SQLite file
+- confirm the backend is using the expected SQLite database
 
-### Order fails due to stock
+### Order fails
 
-- reduce requested quantity
-- check current stock on the Products page
+- verify the product is active
+- verify requested quantity is in stock
 
-## Portfolio Talking Points
+### Backend unavailable from Streamlit
 
-- clean layered backend architecture
-- Streamlit frontend separated from backend business logic
-- SQLAlchemy ORM for relational data
-- Pydantic validation and structured responses
-- AI-ready chat layer built on existing backend services
-- product reviews, ratings, and order workflows
+- check `FASTAPI_BASE_URL`
+- confirm `uvicorn app.main:app --reload` is running
 
-## Future Roadmap
+## Documentation
 
-- image-aware shopping features later
-- payment flow later
-- authentication later
-- Alembic migrations later
-- PostgreSQL later
+- [Architecture Notes](docs/architecture.md)
+- [API Examples](docs/api_examples.md)
 
-## Existing Endpoints Still Work
+## Future Improvements
 
-- `GET /`
-- `GET /api/v1/health`
-- Category CRUD
-- Product CRUD
-- Review CRUD
-- Rating endpoints
-- Order endpoints
-- Chat endpoint
-
-## Before The Next Phase
-
-Make sure you understand:
-
-- why Streamlit stays thin and uses HTTP
-- why the backend remains the source of truth
-- how `st.session_state` is used for cart and chat memory
-- how the AI chat page differs from direct CRUD pages
-- how frontend and backend can evolve independently
+- persistent chat memory
+- authentication and user accounts
+- PostgreSQL deployment
+- Alembic migrations
+- image-aware product search
+- payment integration
