@@ -311,16 +311,6 @@ streamlit run frontend/streamlit_app.py
 Frontend URL:
 
 - `http://localhost:8501`
-
-## Portfolio Talking Points
-
-- built a layered FastAPI backend with clear route, service, and repository separation
-- added a Streamlit frontend that talks to the backend over HTTP instead of bypassing it
-- integrated a LangChain + Groq shopping assistant with tool calling
-- designed the AI flow so it reuses existing backend business logic rather than duplicating it
-- supported conversational follow-ups by sending prior chat history from Streamlit to FastAPI
-- separated normal cart checkout from chat-agent checkout for cleaner architecture
-
 ## Troubleshooting
 
 ### Chat endpoint fails
